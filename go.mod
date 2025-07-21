@@ -1,4 +1,4 @@
-module discat
+module github.com/dwisiswant0/discat
 
 go 1.21
 

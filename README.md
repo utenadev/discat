@@ -6,7 +6,7 @@ A simple way of sending messages from the CLI output to your Discord channel wit
 ## Installation
 
 - Download a prebuilt binary from [releases page](https://github.com/dwisiswant0/discat/releases/latest), unpack and run! or
-- If you have go1.13+ compiler installed: `go get dw1.みんな/discat`.
+- If you have go1.21+ compiler installed: `go install github.com/dwisiswant0/discat@latest`.
 
 ## Configuration
 
