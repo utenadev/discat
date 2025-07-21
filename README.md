@@ -30,6 +30,8 @@ It's very simple!
 ```
 Usage of discat:
   -1    Send message line-by-line
+  -c string
+        Config file path
   -u string
         Discord Webhook URL
   -v    Verbose mode

@@ -30,6 +30,8 @@ export DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/xnxx/xxx-xxx"
 ```
 Usage of discat:
   -1    1行ごとにメッセージを送信
+  -c string
+        設定ファイルのパス
   -u string
         Discord Webhook URL
   -v    詳細モード
