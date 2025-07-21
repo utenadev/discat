@@ -61,6 +61,25 @@ Instead of have to wait for previously executed program to finish, use the `-1` 
 ▶ amass track -d domain.tld | discat -1
 ```
 
+## Changelog
+
+### v0.0.2
+
+#### Features
+
+*   **Configuration File**: Added support for configuration via a YAML file (`-c` flag).
+*   **Graceful Shutdown**: Implemented graceful shutdown on `SIGINT` and `SIGTERM` signals.
+*   **Rate Limiting**: Added a rate limiter to prevent API abuse.
+*   **Retry Logic**: Implemented message send retries with exponential backoff.
+*   **Metrics**: Added metrics for sent messages, errors, and bytes, displayed in verbose mode.
+*   **Message Splitting**: Automatically splits messages that exceed Discord's 2000-character limit.
+
+#### Refactoring & Improvements
+
+*   **Structured Logging**: Replaced `fmt` printing with structured logging using the `log/slog` package.
+*   **Code Structure**: Significantly refactored for better modularity and testability by introducing a `DiscordSender` struct and dedicated functions for configuration and signal handling.
+*   **Error Handling**: Improved error propagation and context.
+
 ## License
 
 `discat` is distributed under MIT License.
