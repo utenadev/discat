@@ -25,7 +25,6 @@ type Config struct {
 	WebhookURL  string
 	OneLine     bool
 	VerboseMode bool
-	ConfigFile  string
 	Timeout     time.Duration
 	MaxRetries  int
 }
@@ -71,42 +70,20 @@ type DiscordSender struct {
 }
 
 func main() {
-	config := parseFlags()
-	logger := NewLogger(config.VerboseMode)
-
-	// 設定ファイルの読み込み
-	if config.ConfigFile != "" {
-		if configFile, err := loadConfigFile(config.ConfigFile); err == nil {
-			if config.WebhookURL == "" {
-				config.WebhookURL = configFile.WebhookURL
-			}
-			if configFile.Timeout > 0 {
-				config.Timeout = time.Duration(configFile.Timeout) * time.Second
-			}
-			if configFile.MaxRetries > 0 {
-				config.MaxRetries = configFile.MaxRetries
-			}
-		} else {
-			logger.Error("Failed to load config file", "error", err)
-		}
+	config, err := loadConfig()
+	if err != nil {
+		slog.Error("Failed to load configuration", "error", err)
+		os.Exit(1)
 	}
+
+	logger := NewLogger(config.VerboseMode)
 
 	if !isStdin() {
 		os.Exit(1)
 	}
 
-	// グレースフルシャットダウンの設定
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-sigChan
-		logger.Info("Received shutdown signal")
-		cancel()
-	}()
+	// Setup graceful shutdown
+	ctx := setupGracefulShutdown(logger)
 
 	sender := NewDiscordSender(config, logger)
 
@@ -117,34 +94,68 @@ func main() {
 		os.Exit(1)
 	}
 
-	// メトリクス表示
+	// Print metrics
 	if config.VerboseMode {
-		sender.PrintMetrics()
+		sender.PrintMetrics(logger)
 	}
 }
 
-func parseFlags() *Config {
+func loadConfig() (*Config, error) {
+	var webhookURL, configFile string
 	config := &Config{
 		Timeout:    30 * time.Second,
 		MaxRetries: 3,
 	}
 
-	flag.StringVar(&config.WebhookURL, "u", "", "Discord Webhook URL")
+	flag.StringVar(&webhookURL, "u", "", "Discord Webhook URL")
 	flag.BoolVar(&config.OneLine, "1", false, "Send message line-by-line")
 	flag.BoolVar(&config.VerboseMode, "v", false, "Verbose mode")
-	flag.StringVar(&config.ConfigFile, "c", "", "Config file path")
+	flag.StringVar(&configFile, "c", "", "Config file path")
 	flag.Parse()
 
-	// 環境変数からWebhook URLを取得
-	if webhookEnv := os.Getenv("DISCORD_WEBHOOK_URL"); webhookEnv != "" {
+	// Precedence: flag > environment variable > config file
+	if webhookURL != "" {
+		config.WebhookURL = webhookURL
+	} else if webhookEnv := os.Getenv("DISCORD_WEBHOOK_URL"); webhookEnv != "" {
 		config.WebhookURL = webhookEnv
 	}
 
-	if config.WebhookURL == "" && config.VerboseMode {
-		fmt.Println("Discord Webhook URL not set!")
+	if configFile != "" {
+		fileConfig, err := loadConfigFile(configFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load config file: %w", err)
+		}
+
+		if config.WebhookURL == "" {
+			config.WebhookURL = fileConfig.WebhookURL
+		}
+		if fileConfig.Timeout > 0 {
+			config.Timeout = time.Duration(fileConfig.Timeout) * time.Second
+		}
+		if fileConfig.MaxRetries > 0 {
+			config.MaxRetries = fileConfig.MaxRetries
+		}
 	}
 
-	return config
+	if config.WebhookURL == "" {
+		logger := NewLogger(config.VerboseMode)
+		logger.Warn("Discord Webhook URL not set!")
+	}
+
+	return config, nil
+}
+
+func setupGracefulShutdown(logger *Logger) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		logger.Info("Received shutdown signal")
+		cancel()
+	}()
+	return ctx
 }
 
 func loadConfigFile(path string) (*ConfigFile, error) {
@@ -176,7 +187,7 @@ func NewRateLimiter() *RateLimiter {
 		ticker: time.NewTicker(time.Second),
 	}
 
-	// 初期トークンを追加
+	// Add initial tokens
 	for i := 0; i < 5; i++ {
 		rl.tokens <- struct{}{}
 	}
@@ -372,9 +383,13 @@ func (ds *DiscordSender) doSendMessage(content string) error {
 	return nil
 }
 
-func (ds *DiscordSender) PrintMetrics() {
+func (ds *DiscordSender) PrintMetrics(logger *Logger) {
 	sent, errors, bytes := ds.metrics.GetStats()
-	fmt.Fprintf(os.Stderr, "Messages sent: %d, Errors: %d, Bytes sent: %d\n", sent, errors, bytes)
+	logger.Info("Metrics",
+		"messages_sent", sent,
+		"errors", errors,
+		"bytes_sent", bytes,
+	)
 }
 
 func isStdin() bool {
