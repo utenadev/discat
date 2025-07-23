@@ -5,8 +5,8 @@ CLIの出力をDiscordチャンネルにWebhookで簡単に送信するための
 
 ## インストール
 
-- [リリースページ](https://github.com/dwisiswant0/discat/releases/latest)からビルド済みのバイナリをダウンロードし、展開して実行してください！ または
-- go1.21+のコンパイラがインストールされている場合: `go install github.com/dwisiswant0/discat@latest`
+- [リリースページ](https://github.com/utenadev/discat/releases/latest)からビルド済みのバイナリをダウンロードし、展開して実行してください！ または
+- go1.21+のコンパイラがインストールされている場合: `go install github.com/utenadev/discat@latest`
 
 ## 設定
 
