@@ -1,27 +1,54 @@
-name: Release
+name: Release Go Binaries
+
 on:
-  create:
-    tags:
-      - v*
+  release:
+    types: [published] # リリースが公開されたときにトリガー
 
-jobs: 
-  release: 
-    runs-on: ubuntu-latest
-    steps: 
-      - name: "Check out code"
-        uses: actions/checkout@v2
-        with: 
-          fetch-depth: 0
+jobs:
+  build:
+    name: Build Go Binaries
+    runs-on: ubuntu-latest # ビルドを実行するOS (Ubuntuが一般的)
 
-      - name: "Set up Go"
-        uses: actions/setup-go@v2
-        with: 
-          go-version: 1.13
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4 # リポジトリのコードをチェックアウト
 
-      - name: "Create release on GitHub"
-        uses: goreleaser/goreleaser-action@v2
-        env: 
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-        with: 
-          args: "release --rm-dist"
-          version: latest
+    - name: Set up Go
+      uses: actions/setup-go@v5 # Go環境をセットアップ
+      with:
+        go-version: '1.22' # 使用するGoのバージョンを指定 (適切なバージョンに更新してください)
+
+    - name: Build and attach binaries to release
+      run: |
+        # 各OS/アーキテクチャ向けのビルド
+        # Windows (amd64)
+        env GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o discat_windows_amd64.exe .
+
+        # Linux (amd64)
+        env GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o discat_linux_amd64 .
+
+        # macOS (amd64)
+        env GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w" -o discat_macos_amd64 .
+
+        # macOS (arm64 - Apple Silicon)
+        env GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w" -o discat_macos_arm64 .
+
+        # Linux (arm64 - Raspberry Pi 3/4など)
+        env GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o discat_linux_arm64 .
+
+        # Linux (arm - Raspberry Pi Zero/1/2/3 の 32bit OS など)
+        env GOOS=linux GOARCH=arm GOARM=7 go build -ldflags "-s -w" -o discat_linux_arm .
+
+        # ビルドしたバイナリをGitHub Releaseにアップロード
+        # gh CLIツールを使用 (actions/github-scriptなどでも可能)
+        # これはreleaseイベントの際に自動的に利用可能なトークンを使用します
+        gh release upload ${{ github.ref_name }} \
+          discat_windows_amd64.exe \
+          discat_linux_amd64 \
+          discat_macos_amd64 \
+          discat_macos_arm64 \
+          discat_linux_arm64 \
+          discat_linux_arm \
+          --clobber # 既存のアセットがあれば上書き (リリースを更新する場合)
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHubが提供するトークン
