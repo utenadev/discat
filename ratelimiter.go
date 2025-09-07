@@ -1,4 +1,4 @@
-package main
+package discat
 
 import "time"
 

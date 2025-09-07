@@ -1,9 +1,92 @@
-package main
+package discat
 
 import (
+	"context"
+	"io"
+	"net/http"
+	"sort"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
+
+type MockHTTPClient struct {
+	mu          sync.Mutex
+	requests    []*http.Request
+	response    *http.Response
+	responseErr error
+}
+
+func (c *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.requests = append(c.requests, req)
+	if c.responseErr != nil {
+		return nil, c.responseErr
+	}
+	return c.response, nil
+}
+
+func TestProcessInputWithContext(t *testing.T) {
+	mockClient := &MockHTTPClient{
+		response: &http.Response{
+			StatusCode: http.StatusNoContent,
+			Body:       io.NopCloser(strings.NewReader("")),
+		},
+	}
+
+	config := &Config{
+		WebhookURL: "http://test.com",
+		OneLine:    true,
+		MaxRetries: 0,
+		Timeout:    1 * time.Second,
+	}
+	logger := NewLogger(false)
+
+	ds := &DiscordSender{
+		client:      mockClient,
+		config:      config,
+		logger:      logger,
+		rateLimiter: NewRateLimiter(),
+		metrics:     NewMetrics(),
+		wg:          &sync.WaitGroup{},
+	}
+
+	input := "hello\nworld\n"
+	reader := strings.NewReader(input)
+
+	err := ds.ProcessInputWithContext(context.Background(), reader)
+	if err != nil {
+		t.Fatalf("ProcessInputWithContext failed: %v", err)
+	}
+
+	ds.wg.Wait() // Wait for all goroutines to finish
+
+	mockClient.mu.Lock()
+	defer mockClient.mu.Unlock()
+
+	if len(mockClient.requests) != 2 {
+		t.Fatalf("Expected 2 requests, got %d", len(mockClient.requests))
+	}
+
+	expectedBodies := []string{`{"content":"hello"}`, `{"content":"world"}`}
+	actualBodies := []string{}
+	for _, req := range mockClient.requests {
+		body, _ := io.ReadAll(req.Body)
+		trimmedBody := strings.TrimSpace(string(body))
+		actualBodies = append(actualBodies, trimmedBody)
+	}
+
+	sort.Strings(expectedBodies)
+	sort.Strings(actualBodies)
+
+	for i := range expectedBodies {
+		if expectedBodies[i] != actualBodies[i] {
+			t.Errorf("Expected body %q, got %q", expectedBodies[i], actualBodies[i])
+		}
+	}
+}
 
 func TestSplitMessage(t *testing.T) {
 	tests := []struct {

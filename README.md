@@ -25,6 +25,53 @@ It's very simple!
 ▶ echo -e "Hello,\nworld!" | discat
 ```
 
+### Library Usage
+
+In addition to being a command-line tool, `discat` can be used as a library in your own Go projects.
+
+**Example:**
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+	"strings"
+	"time"
+
+	"github.com/utenadev/discat"
+)
+
+func main() {
+	// Basic configuration
+	config := &discat.Config{
+		WebhookURL: "YOUR_DISCORD_WEBHOOK_URL", // Required
+		OneLine:    true,
+		MaxRetries: 3,
+		Timeout:    10 * time.Second,
+	}
+
+	// Create a logger and a sender
+	logger := discat.NewLogger(false) // Set to true for verbose logging
+	sender := discat.NewDiscordSender(config, logger)
+
+	// Prepare your input
+	input := "This is a test message from the discat library."
+	reader := strings.NewReader(input)
+
+	// Send the message
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := sender.ProcessInputWithContext(ctx, reader); err != nil {
+		log.Fatalf("Failed to send message: %v", err)
+	}
+
+	log.Println("Message sent successfully!")
+}
+```
+
 ### Flags
 
 ```

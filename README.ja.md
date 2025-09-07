@@ -25,6 +25,53 @@ export DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/xnxx/xxx-xxx"
 ▶ echo -e "Hello,\nworld!" | discat
 ```
 
+### ライブラリとしての利用
+
+`discat`はコマンドラインツールとしてだけでなく、あなたのGoプロジェクトでライブラリとして利用することも可能です。
+
+**使用例:**
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+	"strings"
+	"time"
+
+	"github.com/utenadev/discat"
+)
+
+func main() {
+	// 基本的な設定
+	config := &discat.Config{
+		WebhookURL: "あなたのDiscord Webhook URL", // 必須
+		OneLine:    true,
+		MaxRetries: 3,
+		Timeout:    10 * time.Second,
+	}
+
+	// ロガーとセンダーを作成
+	logger := discat.NewLogger(false) // 詳細なログを記録する場合はtrueに設定
+	sender := discat.NewDiscordSender(config, logger)
+
+	// 入力を準備
+	input := "discatライブラリからのテストメッセージです。"
+	reader := strings.NewReader(input)
+
+	// メッセージを送信
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := sender.ProcessInputWithContext(ctx, reader); err != nil {
+		log.Fatalf("メッセージの送信に失敗しました: %v", err)
+	}
+
+	log.Println("メッセージが正常に送信されました！")
+}
+```
+
 ### フラグ
 
 ```

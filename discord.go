@@ -1,12 +1,12 @@
-package main
+package discat
 
 import (
 	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -46,8 +46,8 @@ func NewDiscordSender(config *Config, logger *Logger) *DiscordSender {
 	}
 }
 
-func (ds *DiscordSender) ProcessInputWithContext(ctx context.Context) error {
-	scanner := bufio.NewScanner(os.Stdin)
+func (ds *DiscordSender) ProcessInputWithContext(ctx context.Context, reader io.Reader) error {
+	scanner := bufio.NewScanner(reader)
 	var lines strings.Builder
 
 	for scanner.Scan() {
@@ -60,7 +60,6 @@ func (ds *DiscordSender) ProcessInputWithContext(ctx context.Context) error {
 		}
 
 		line := scanner.Text()
-		fmt.Println(line)
 
 		if ds.config.OneLine {
 			if ds.config.WebhookURL != "" {
